@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.35] - 2026-05-05
+
+### Added
+
+- `--warm-model=<which>` flag to pre-download model files into the
+  local cache without running a scan. Useful for CI image builds and
+  air-gapped environments where the first scan can't reach
+  huggingface.co. Accepts `default` (bert), `all` (bert + gliner),
+  or a specific backend name (`bert`, `gliner`, `regex+bert`,
+  `regex+gliner`).
+
 ## [0.5.34] - 2026-04-24
 
 ### Fixed
