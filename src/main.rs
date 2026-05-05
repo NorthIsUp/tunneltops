@@ -18,7 +18,7 @@ use rayon::prelude::*;
 
 use crate::finding::{FileOutcome, Finding};
 use crate::ignorelist::Ignorelist;
-use crate::ner::{Model, NerEngine};
+use crate::ner::{Model, NerEngine, NerKind};
 use crate::output::Formatter;
 use crate::recognizer::RecognizerSet;
 use crate::walker::discover_files;
@@ -147,6 +147,12 @@ struct Cli {
     #[arg(long, value_enum, default_value_t = Model::Bert)]
     model: Model,
 
+    /// Pre-download model files into the local cache and exit. Useful for
+    /// CI image builds and air-gapped environments. `default` warms the
+    /// default backend (bert), `all` warms every ML backend.
+    #[arg(long, value_enum, value_name = "WHICH")]
+    warm_model: Option<WarmModel>,
+
     /// Only log files with findings (suppress clean file output)
     #[arg(long = "only-issues")]
     only_issues: bool,
@@ -206,6 +212,31 @@ enum Format {
     Github,
 }
 
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum WarmModel {
+    /// Warm the default backend (bert).
+    Default,
+    /// Warm every ML backend (bert + gliner).
+    All,
+    Bert,
+    Gliner,
+    #[value(name = "regex+bert")]
+    RegexBert,
+    #[value(name = "regex+gliner")]
+    RegexGliner,
+}
+
+impl WarmModel {
+    fn kinds(self) -> Vec<NerKind> {
+        match self {
+            WarmModel::Default => vec![NerKind::Bert],
+            WarmModel::All => vec![NerKind::Bert, NerKind::Gliner],
+            WarmModel::Bert | WarmModel::RegexBert => vec![NerKind::Bert],
+            WarmModel::Gliner | WarmModel::RegexGliner => vec![NerKind::Gliner],
+        }
+    }
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     init_logging(cli.debug);
@@ -221,6 +252,13 @@ fn main() -> Result<()> {
             return Ok(());
         }
         None => {}
+    }
+
+    if let Some(warm) = cli.warm_model {
+        for kind in warm.kinds() {
+            ner::warm(kind).with_context(|| format!("warming {kind:?} model"))?;
+        }
+        return Ok(());
     }
 
     let ignorelist_path = resolve_ignorelist_path(cli.baselines.as_deref());

@@ -76,6 +76,41 @@ impl Model {
     }
 }
 
+/// Download model + tokenizer files for the given backend into the local cache,
+/// without building inference sessions. Idempotent: skips files already cached.
+pub fn warm(kind: NerKind) -> Result<()> {
+    let cache = cache_dir()?;
+    fs::create_dir_all(&cache)
+        .with_context(|| format!("creating cache dir {}", cache.display()))?;
+    match kind {
+        NerKind::Bert => {
+            ensure_file(
+                &cache.join("bert-base-NER.onnx"),
+                &hf_url(BERT_REPO, BERT_MODEL_FILE),
+                "BERT NER model (~109 MB)",
+            )?;
+            ensure_file(
+                &cache.join("bert-base-NER.tokenizer.json"),
+                &hf_url(BERT_REPO, BERT_TOKENIZER_FILE),
+                "BERT NER tokenizer",
+            )?;
+        }
+        NerKind::Gliner => {
+            ensure_file(
+                &cache.join("gliner-pii-base-v1.0.onnx"),
+                &hf_url(GLINER_REPO, GLINER_MODEL_FILE),
+                "GLiNER model (~187 MB)",
+            )?;
+            ensure_file(
+                &cache.join("gliner-pii-base-v1.0.tokenizer.json"),
+                &hf_url(GLINER_REPO, GLINER_TOKENIZER_FILE),
+                "GLiNER tokenizer",
+            )?;
+        }
+    }
+    Ok(())
+}
+
 pub struct NerEngine {
     backend: Backend,
 }
